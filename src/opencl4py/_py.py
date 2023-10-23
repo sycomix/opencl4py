@@ -199,10 +199,11 @@ class Event(CL):
         """Wait on list of Event objects.
         """
         wait_list, n_events = CL.get_wait_list(wait_for)
-        n = lib.clWaitForEvents(n_events, wait_list)
-        if n:
-            raise CLRuntimeError("clWaitForEvents() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := lib.clWaitForEvents(n_events, wait_list):
+            raise CLRuntimeError(
+                f"clWaitForEvents() failed with error {CL.get_error_description(n)}",
+                n,
+            )
 
     def wait(self):
         """Waits on this event.
@@ -225,8 +226,8 @@ class Event(CL):
         """
         vle = cl.ffi.new("cl_ulong[]", 1)
         sz = cl.ffi.sizeof(vle)
-        vles = {}
         errs = {}
+        vles = {}
         for name in (cl.CL_PROFILING_COMMAND_QUEUED,
                      cl.CL_PROFILING_COMMAND_SUBMIT,
                      cl.CL_PROFILING_COMMAND_START,
@@ -243,8 +244,9 @@ class Event(CL):
                 if not err:
                     continue
                 raise CLRuntimeError(
-                    "clGetEventProfilingInfo() failed with "
-                    "error %s" % CL.get_error_description(err), err)
+                    f"clGetEventProfilingInfo() failed with error {CL.get_error_description(err)}",
+                    err,
+                )
         return (vles, errs)
 
     def _release(self):
@@ -283,22 +285,20 @@ class Queue(CL):
                 context.handle, device.handle, flags, err)
         else:
             fnme = "clCreateCommandQueueWithProperties"
-            if properties is None and flags == 0:
-                props = cl.ffi.NULL
-            else:
-                if cl.CL_QUEUE_PROPERTIES not in properties and flags != 0:
-                    properties[cl.CL_QUEUE_PROPERTIES] = flags
-                props = cl.ffi.new("uint64_t[]", len(properties) * 2 + 1)
-                for i, kv in enumerate(sorted(properties.items())):
-                    props[i * 2] = kv[0]
-                    props[i * 2 + 1] = kv[1]
+            if cl.CL_QUEUE_PROPERTIES not in properties and flags != 0:
+                properties[cl.CL_QUEUE_PROPERTIES] = flags
+            props = cl.ffi.new("uint64_t[]", len(properties) * 2 + 1)
+            for i, kv in enumerate(sorted(properties.items())):
+                props[i * 2] = kv[0]
+                props[i * 2 + 1] = kv[1]
             self._handle = self._lib.clCreateCommandQueueWithProperties(
                 context.handle, device.handle, props, err)
         if err[0]:
             self._handle = None
-            raise CLRuntimeError("%s() failed with error %s" %
-                                 (fnme, CL.get_error_description(err[0])),
-                                 err[0])
+            raise CLRuntimeError(
+                f"{fnme}() failed with error {CL.get_error_description(err[0])}",
+                err[0],
+            )
 
     @property
     def context(self):
@@ -353,12 +353,21 @@ class Queue(CL):
             global_work_offset = cl.ffi.new("size_t[]", n_dims)
             for i, sz in enumerate(global_offset):
                 global_work_offset[i] = sz
-        n = self._lib.clEnqueueNDRangeKernel(
-            self.handle, kernel.handle, n_dims, global_work_offset,
-            global_work_size, local_work_size, n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueNDRangeKernel() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueNDRangeKernel(
+            self.handle,
+            kernel.handle,
+            n_dims,
+            global_work_offset,
+            global_work_size,
+            local_work_size,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueNDRangeKernel() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def map_buffer(self, buf, flags, size, blocking=True, offset=0,
@@ -386,8 +395,10 @@ class Queue(CL):
             self.handle, buf.handle, blocking, flags, offset, size,
             n_events, wait_list, event, err)
         if err[0]:
-            raise CLRuntimeError("clEnqueueMapBuffer() failed with error %s" %
-                                 CL.get_error_description(err[0]), err[0])
+            raise CLRuntimeError(
+                f"clEnqueueMapBuffer() failed with error {CL.get_error_description(err[0])}",
+                err[0],
+            )
         return (None if event == cl.ffi.NULL else Event(event[0]),
                 int(cl.ffi.cast("size_t", ptr)))
 
@@ -405,12 +416,18 @@ class Queue(CL):
         """
         event = cl.ffi.new("cl_event[]", 1) if need_event else cl.ffi.NULL
         wait_list, n_events = CL.get_wait_list(wait_for)
-        n = self._lib.clEnqueueUnmapMemObject(
-            self.handle, buf.handle, cl.ffi.cast("void*", ptr),
-            n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueUnmapMemObject() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueUnmapMemObject(
+            self.handle,
+            buf.handle,
+            cl.ffi.cast("void*", ptr),
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueUnmapMemObject() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def read_buffer(self, buf, host_array, blocking=True, size=None, offset=0,
@@ -432,12 +449,21 @@ class Queue(CL):
         event = cl.ffi.new("cl_event[]", 1) if need_event else cl.ffi.NULL
         wait_list, n_events = CL.get_wait_list(wait_for)
         host_ptr, size = CL.extract_ptr_and_size(host_array, size)
-        n = self._lib.clEnqueueReadBuffer(
-            self.handle, buf.handle, blocking, offset, size, host_ptr,
-            n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueReadBuffer() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueReadBuffer(
+            self.handle,
+            buf.handle,
+            blocking,
+            offset,
+            size,
+            host_ptr,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueReadBuffer() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def write_buffer(self, buf, host_array, blocking=True, size=None, offset=0,
@@ -459,12 +485,21 @@ class Queue(CL):
         event = cl.ffi.new("cl_event[]", 1) if need_event else cl.ffi.NULL
         wait_list, n_events = CL.get_wait_list(wait_for)
         host_ptr, size = CL.extract_ptr_and_size(host_array, size)
-        n = self._lib.clEnqueueWriteBuffer(
-            self.handle, buf.handle, blocking, offset, size, host_ptr,
-            n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueReadBuffer() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueWriteBuffer(
+            self.handle,
+            buf.handle,
+            blocking,
+            offset,
+            size,
+            host_ptr,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueReadBuffer() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def copy_buffer(self, src, dst, src_offset, dst_offset, size,
@@ -485,12 +520,21 @@ class Queue(CL):
         """
         event = cl.ffi.new("cl_event[]", 1) if need_event else cl.ffi.NULL
         wait_list, n_events = CL.get_wait_list(wait_for)
-        n = self._lib.clEnqueueCopyBuffer(
-            self.handle, src.handle, dst.handle, src_offset, dst_offset, size,
-            n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueCopyBuffer() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueCopyBuffer(
+            self.handle,
+            src.handle,
+            dst.handle,
+            src_offset,
+            dst_offset,
+            size,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueCopyBuffer() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def copy_buffer_rect(self, src, dst, src_origin, dst_origin, region,
@@ -530,15 +574,25 @@ class Queue(CL):
         _src_origin = cl.ffi.new("size_t[]", src_origin)
         _dst_origin = cl.ffi.new("size_t[]", dst_origin)
         _region = cl.ffi.new("size_t[]", region)
-        n = self._lib.clEnqueueCopyBufferRect(
-            self.handle, src.handle, dst.handle,
-            _src_origin, _dst_origin, _region,
-            src_row_pitch, src_slice_pitch,
-            dst_row_pitch, dst_slice_pitch,
-            n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueCopyBufferRect() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueCopyBufferRect(
+            self.handle,
+            src.handle,
+            dst.handle,
+            _src_origin,
+            _dst_origin,
+            _region,
+            src_row_pitch,
+            src_slice_pitch,
+            dst_row_pitch,
+            dst_slice_pitch,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueCopyBufferRect() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def fill_buffer(self, buffer, pattern, pattern_size, size, offset=0,
@@ -563,12 +617,21 @@ class Queue(CL):
         event = cl.ffi.new("cl_event[]", 1) if need_event else cl.ffi.NULL
         wait_list, n_events = CL.get_wait_list(wait_for)
         pattern, _ = CL.extract_ptr_and_size(pattern, 0)
-        n = self._lib.clEnqueueFillBuffer(
-            self.handle, buffer.handle, pattern, pattern_size, offset, size,
-            n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueFillBuffer() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueFillBuffer(
+            self.handle,
+            buffer.handle,
+            pattern,
+            pattern_size,
+            offset,
+            size,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueFillBuffer() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def svm_map(self, svm_ptr, flags, size, blocking=True,
@@ -593,12 +656,13 @@ class Queue(CL):
             ptr = svm_ptr.handle
         else:
             ptr, size = CL.extract_ptr_and_size(svm_ptr, size)
-        err = self._lib.clEnqueueSVMMap(
-            self.handle, blocking, flags, ptr, size,
-            n_events, wait_list, event)
-        if err:
-            raise CLRuntimeError("clEnqueueSVMMap() failed with error %s" %
-                                 CL.get_error_description(err), err)
+        if err := self._lib.clEnqueueSVMMap(
+            self.handle, blocking, flags, ptr, size, n_events, wait_list, event
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueSVMMap() failed with error {CL.get_error_description(err)}",
+                err,
+            )
         return None if event == cl.ffi.NULL else Event(event[0])
 
     def svm_unmap(self, svm_ptr, wait_for=None, need_event=True):
@@ -618,12 +682,13 @@ class Queue(CL):
             ptr = svm_ptr.handle
         else:
             ptr, _size = CL.extract_ptr_and_size(svm_ptr, 0)
-        err = self._lib.clEnqueueSVMUnmap(
-            self.handle, ptr, n_events, wait_list, event)
-        if err:
+        if err := self._lib.clEnqueueSVMUnmap(
+            self.handle, ptr, n_events, wait_list, event
+        ):
             raise CLRuntimeError(
-                "clEnqueueSVMUnmap() failed with error %s" %
-                CL.get_error_description(err), err)
+                f"clEnqueueSVMUnmap() failed with error {CL.get_error_description(err)}",
+                err,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def svm_memcpy(self, dst, src, size, blocking=True,
@@ -645,11 +710,13 @@ class Queue(CL):
         wait_list, n_events = CL.get_wait_list(wait_for)
         dst, _ = CL.extract_ptr_and_size(dst, 0)
         src, _ = CL.extract_ptr_and_size(src, 0)
-        n = self._lib.clEnqueueSVMMemcpy(
-            self.handle, blocking, dst, src, size, n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueSVMMemcpy() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueSVMMemcpy(
+            self.handle, blocking, dst, src, size, n_events, wait_list, event
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueSVMMemcpy() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def svm_memfill(self, svm_ptr, pattern, pattern_size, size,
@@ -677,29 +744,37 @@ class Queue(CL):
         else:
             ptr, _ = CL.extract_ptr_and_size(svm_ptr, 0)
         pattern, _ = CL.extract_ptr_and_size(pattern, 0)
-        n = self._lib.clEnqueueSVMMemFill(
-            self.handle, ptr, pattern, pattern_size, size,
-            n_events, wait_list, event)
-        if n:
-            raise CLRuntimeError("clEnqueueSVMMemFill() failed with "
-                                 "error %s" % CL.get_error_description(n), n)
+        if n := self._lib.clEnqueueSVMMemFill(
+            self.handle,
+            ptr,
+            pattern,
+            pattern_size,
+            size,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clEnqueueSVMMemFill() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         return Event(event[0]) if event != cl.ffi.NULL else None
 
     def flush(self):
         """Flushes the queue.
         """
-        n = self._lib.clFlush(self.handle)
-        if n:
-            raise CLRuntimeError("clFlush() failed with error %s" %
-                                 CL.get_error_description(n), n)
+        if n := self._lib.clFlush(self.handle):
+            raise CLRuntimeError(
+                f"clFlush() failed with error {CL.get_error_description(n)}", n
+            )
 
     def finish(self):
         """Waits for all previous commands issued to this queue to end.
         """
-        n = self._lib.clFinish(self.handle)
-        if n:
-            raise CLRuntimeError("clFinish() failed with error %s" %
-                                 CL.get_error_description(n), n)
+        if n := self._lib.clFinish(self.handle):
+            raise CLRuntimeError(
+                f"clFinish() failed with error {CL.get_error_description(n)}", n
+            )
 
     def _release(self):
         if self.handle is not None:
@@ -758,9 +833,9 @@ class Buffer(CL):
         if err[0]:
             self._handle = None
             raise CLRuntimeError(
-                "%s failed with error %s" %
-                ("clCreateBuffer()" if parent is None else "clCreateSubBuffer",
-                 CL.get_error_description(err[0])), err[0])
+                f'{"clCreateBuffer()" if parent is None else "clCreateSubBuffer"} failed with error {CL.get_error_description(err[0])}',
+                err[0],
+            )
 
     def _add_ref(self, obj):
         self._n_refs += 1
@@ -928,13 +1003,18 @@ class WorkGroupInfo(CL):
 
     def _get_info(self, code, buf):
         sz = cl.ffi.new("size_t *")
-        err = self._lib.clGetKernelWorkGroupInfo(
-            self.kernel.handle, self.device.handle, code,
-            cl.ffi.sizeof(buf), buf, sz)
-        if err:
+        if err := self._lib.clGetKernelWorkGroupInfo(
+            self.kernel.handle,
+            self.device.handle,
+            code,
+            cl.ffi.sizeof(buf),
+            buf,
+            sz,
+        ):
             raise CLRuntimeError(
-                "clGetKernelWorkGroupInfo() failed with error %s" %
-                CL.get_error_description(err), err)
+                f"clGetKernelWorkGroupInfo() failed with error {CL.get_error_description(err)}",
+                err,
+            )
         return sz[0]
 
 
@@ -955,9 +1035,10 @@ class Kernel(CL):
         self._handle = self._lib.clCreateKernel(program.handle, ss, err)
         if err[0]:
             self._handle = None
-            raise CLRuntimeError("clCreateKernel() failed with error %s" %
-                                 CL.get_error_description(err[0]),
-                                 err[0])
+            raise CLRuntimeError(
+                f"clCreateKernel() failed with error {CL.get_error_description(err[0])}",
+                err[0],
+            )
 
     @property
     def program(self):
@@ -1007,7 +1088,7 @@ class Kernel(CL):
                  - may be cffi pointer also, in such case size should be set.
             size: size of the vle (may be None for buffers and scalars).
         """
-        if isinstance(vle, Buffer) or isinstance(vle, Pipe):
+        if isinstance(vle, (Buffer, Pipe)):
             arg_value = cl.ffi.new("cl_mem[]", 1)
             arg_value[0] = vle.handle
             arg_size = cl.ffi.sizeof("cl_mem")
@@ -1029,8 +1110,7 @@ class Kernel(CL):
             raise ValueError("vle should be of type Buffer, Pipe, SVM, "
                              "numpy array, cffi pointer or None "
                              "in Kernel::set_arg()")
-        n = self._lib.clSetKernelArg(self.handle, idx, arg_size, arg_value)
-        if n:
+        if n := self._lib.clSetKernelArg(self.handle, idx, arg_size, arg_value):
             raise CLRuntimeError("clSetKernelArg(%d, %s) failed with error "
                                  "%s" % (idx, repr(vle),
                                          CL.get_error_description(n)),
@@ -1047,8 +1127,7 @@ class Kernel(CL):
             ptr = svm_ptr.handle
         else:
             ptr, _size = CL.extract_ptr_and_size(svm_ptr, 0)
-        err = self._lib.clSetKernelArgSVMPointer(self.handle, idx, ptr)
-        if err:
+        if err := self._lib.clSetKernelArgSVMPointer(self.handle, idx, ptr):
             raise CLRuntimeError(
                 "clSetKernelArgSVMPointer(%d, %s) failed with error %s" %
                 (idx, repr(svm_ptr), CL.get_error_description(err)), err)
@@ -1075,11 +1154,13 @@ class Kernel(CL):
 
     def _get_kernel_info(self, code, buf):
         sz = cl.ffi.new("size_t *")
-        err = self._lib.clGetKernelInfo(
-            self.handle, code, cl.ffi.sizeof(buf), buf, sz)
-        if err:
-            raise CLRuntimeError("clGetKernelInfo() failed with error %s" %
-                                 CL.get_error_description(err), err)
+        if err := self._lib.clGetKernelInfo(
+            self.handle, code, cl.ffi.sizeof(buf), buf, sz
+        ):
+            raise CLRuntimeError(
+                f"clGetKernelInfo() failed with error {CL.get_error_description(err)}",
+                err,
+            )
         return sz[0]
 
     def __del__(self):
@@ -1189,9 +1270,10 @@ class Program(CL):
             bufr.append(cl.ffi.new("char[]", sizes[i]))
             buf[i] = bufr[-1]
         self._get_program_info(cl.CL_PROGRAM_BINARIES, buf)
-        bins = []
-        for i in range(len(self.devices)):
-            bins.append(bytes(cl.ffi.buffer(buf[i], sizes[i])[0:sizes[i]]))
+        bins = [
+            bytes(cl.ffi.buffer(buf[i], sizes[i])[: sizes[i]])
+            for i in range(len(self.devices))
+        ]
         del bufr
         return bins
 
@@ -1202,11 +1284,13 @@ class Program(CL):
 
     def _get_program_info(self, code, buf):
         sz = cl.ffi.new("size_t *")
-        err = self._lib.clGetProgramInfo(self.handle, code,
-                                         cl.ffi.sizeof(buf), buf, sz)
-        if err:
-            raise CLRuntimeError("clGetProgramInfo() failed with error %s" %
-                                 CL.get_error_description(err), err)
+        if err := self._lib.clGetProgramInfo(
+            self.handle, code, cl.ffi.sizeof(buf), buf, sz
+        ):
+            raise CLRuntimeError(
+                f"clGetProgramInfo() failed with error {CL.get_error_description(err)}",
+                err,
+            )
         return sz[0]
 
     def _get_build_logs(self, device_list):
@@ -1338,8 +1422,10 @@ class Pipe(CL):
             context.handle, flags, packet_size, max_packets, cl.ffi.NULL, err)
         if err[0]:
             self._handle = None
-            raise CLRuntimeError("clCreatePipe() failed with error %s" %
-                                 CL.get_error_description(err[0]), err[0])
+            raise CLRuntimeError(
+                f"clCreatePipe() failed with error {CL.get_error_description(err[0])}",
+                err[0],
+            )
 
     @property
     def context(self):
@@ -1459,9 +1545,10 @@ class Context(CL):
             props, n_devices, device_list, cl.ffi.NULL, cl.ffi.NULL, err)
         if err[0]:
             self._handle = None
-            raise CLRuntimeError("clCreateContext() failed with error %s" %
-                                 CL.get_error_description(err[0]),
-                                 err[0])
+            raise CLRuntimeError(
+                f"clCreateContext() failed with error {CL.get_error_description(err[0])}",
+                err[0],
+            )
 
     def _add_ref(self, obj):
         self._n_refs += 1
@@ -1892,10 +1979,13 @@ class Device(CL):
     @property
     def max_work_item_sizes(self):
         value = cl.ffi.new("size_t[]", self.max_work_item_dimensions)
-        err = self._lib.clGetDeviceInfo(
-            self._handle, cl.CL_DEVICE_MAX_WORK_ITEM_SIZES,
-            cl.ffi.sizeof(value), value, cl.ffi.NULL)
-        if err:
+        if err := self._lib.clGetDeviceInfo(
+            self._handle,
+            cl.CL_DEVICE_MAX_WORK_ITEM_SIZES,
+            cl.ffi.sizeof(value),
+            value,
+            cl.ffi.NULL,
+        ):
             return None
         return list(value)
 
@@ -1929,27 +2019,27 @@ class Device(CL):
 
     def _get_device_info_bool(self, name):
         value = cl.ffi.new("cl_bool[]", 1)
-        err = self._lib.clGetDeviceInfo(
-            self._handle, name, cl.ffi.sizeof(value), value, cl.ffi.NULL)
-        if err:
+        if err := self._lib.clGetDeviceInfo(
+            self._handle, name, cl.ffi.sizeof(value), value, cl.ffi.NULL
+        ):
             raise CLRuntimeError("clGetDeviceInfo(%d) failed with error %s" %
                                  (name, CL.get_error_description(err)), err)
         return bool(value[0])
 
     def _get_device_info_int(self, name):
         value = cl.ffi.new("uint64_t[]", 1)
-        err = self._lib.clGetDeviceInfo(
-            self._handle, name, cl.ffi.sizeof(value), value, cl.ffi.NULL)
-        if err:
+        if err := self._lib.clGetDeviceInfo(
+            self._handle, name, cl.ffi.sizeof(value), value, cl.ffi.NULL
+        ):
             raise CLRuntimeError("clGetDeviceInfo(%d) failed with error %s" %
                                  (name, CL.get_error_description(err)), err)
         return int(value[0])
 
     def _get_device_info_str(self, name):
         value = cl.ffi.new("char[]", 1024)
-        err = self._lib.clGetDeviceInfo(
-            self._handle, name, cl.ffi.sizeof(value), value, cl.ffi.NULL)
-        if err:
+        if err := self._lib.clGetDeviceInfo(
+            self._handle, name, cl.ffi.sizeof(value), value, cl.ffi.NULL
+        ):
             raise CLRuntimeError("clGetDeviceInfo(%d) failed with error %s" %
                                  (name, CL.get_error_description(err)), err)
         return cl.ffi.string(value).decode("utf-8")
@@ -1975,24 +2065,28 @@ class Platform(CL):
         nme = cl.ffi.new("char[]", 256)
         n = self._lib.clGetPlatformInfo(handle, cl.CL_PLATFORM_NAME,
                                         256, nme, sz)
-        self._name = ((b"".join(nme[0:sz[0] - 1])).decode("utf-8")
-                      if not n else None)
+        self._name = b"".join(nme[:sz[0] - 1]).decode("utf-8") if not n else None
 
         nn = cl.ffi.new("cl_uint[]", 1)
-        n = self._lib.clGetDeviceIDs(handle, cl.CL_DEVICE_TYPE_ALL,
-                                     0, cl.ffi.NULL, nn)
-        if n:
-            raise CLRuntimeError("clGetDeviceIDs() failed with error %s" %
-                                 CL.get_error_description(n), n)
+        if n := self._lib.clGetDeviceIDs(
+            handle, cl.CL_DEVICE_TYPE_ALL, 0, cl.ffi.NULL, nn
+        ):
+            raise CLRuntimeError(
+                f"clGetDeviceIDs() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         ids = cl.ffi.new("cl_device_id[]", nn[0])
-        n = self._lib.clGetDeviceIDs(handle, cl.CL_DEVICE_TYPE_ALL,
-                                     nn[0], ids, nn)
-        if n:
-            raise CLRuntimeError("clGetDeviceIDs() failed with error %s" %
-                                 CL.get_error_description(n), n)
-        self._devices = list(Device(dev_id, self,
-                                    "%s:%d" % (self.path, dev_num))
-                             for dev_id, dev_num in zip(ids, range(len(ids))))
+        if n := self._lib.clGetDeviceIDs(
+            handle, cl.CL_DEVICE_TYPE_ALL, nn[0], ids, nn
+        ):
+            raise CLRuntimeError(
+                f"clGetDeviceIDs() failed with error {CL.get_error_description(n)}",
+                n,
+            )
+        self._devices = [
+            Device(dev_id, self, "%s:%d" % (self.path, dev_num))
+            for dev_id, dev_num in zip(ids, range(len(ids)))
+        ]
 
     @property
     def devices(self):
@@ -2043,17 +2137,20 @@ class Platforms(CL):
         cl.initialize()
         super(Platforms, self).__init__()
         nn = cl.ffi.new("cl_uint[]", 1)
-        n = self._lib.clGetPlatformIDs(0, cl.ffi.NULL, nn)
-        if n:
-            raise CLRuntimeError("clGetPlatformIDs() failed with error %s" %
-                                 CL.get_error_description(n), n)
+        if n := self._lib.clGetPlatformIDs(0, cl.ffi.NULL, nn):
+            raise CLRuntimeError(
+                f"clGetPlatformIDs() failed with error {CL.get_error_description(n)}",
+                n,
+            )
         ids = cl.ffi.new("cl_platform_id[]", nn[0])
-        n = self._lib.clGetPlatformIDs(nn[0], ids, nn)
-        if n:
-            raise CLRuntimeError("clGetPlatformIDs() failed with error %s" %
-                                 CL.get_error_description(n), n)
-        self._platforms = list(Platform(p_id, str(p_num))
-                               for p_id, p_num in zip(ids, range(len(ids))))
+        if n := self._lib.clGetPlatformIDs(nn[0], ids, nn):
+            raise CLRuntimeError(
+                f"clGetPlatformIDs() failed with error {CL.get_error_description(n)}",
+                n,
+            )
+        self._platforms = [
+            Platform(p_id, str(p_num)) for p_id, p_num in zip(ids, range(len(ids)))
+        ]
 
     @property
     def platforms(self):
@@ -2070,10 +2167,17 @@ class Platforms(CL):
         lines = []
         for i, platform in enumerate(self.platforms):
             lines.append("Platform %d: %s" % (i, platform.name.strip()))
-            for j, device in enumerate(platform.devices):
-                lines.append("\tDevice %d: %s (%d Mb, %d align, %s)" % (
-                    j, device.name.strip(), device.memsize // (1024 * 1024),
-                    device.memalign, device.version_string.strip()))
+            lines.extend(
+                "\tDevice %d: %s (%d Mb, %d align, %s)"
+                % (
+                    j,
+                    device.name.strip(),
+                    device.memsize // (1024 * 1024),
+                    device.memalign,
+                    device.version_string.strip(),
+                )
+                for j, device in enumerate(platform.devices)
+            )
         return "\n".join(lines)
 
     def create_some_context(self):
@@ -2123,8 +2227,7 @@ class Platforms(CL):
         device_strings = ctx.split(",")
         device_numbers = []
         try:
-            for s in device_strings:
-                device_numbers.append(int(s) if len(s) else 0)
+            device_numbers.extend(int(s) if len(s) else 0 for s in device_strings)
         except ValueError:
             raise ValueError("Incorrect device number")
         try:
@@ -2133,8 +2236,7 @@ class Platforms(CL):
             raise IndexError("Platform index is out of range")
         devices = []
         try:
-            for i in device_numbers:
-                devices.append(platform.devices[i])
+            devices.extend(platform.devices[i] for i in device_numbers)
         except IndexError:
             raise IndexError("Devicve index is out of range")
         return platform.create_context(devices)

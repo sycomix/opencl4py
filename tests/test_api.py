@@ -165,8 +165,7 @@ class Test(unittest.TestCase):
 
     def test_create_context(self):
         platforms = cl.Platforms()
-        ctx = cl.Context(platforms.platforms[0],
-                         platforms.platforms[0].devices[0:1])
+        ctx = cl.Context(platforms.platforms[0], platforms.platforms[0].devices[:1])
         del ctx
 
     def test_create_some_context(self):
@@ -326,7 +325,7 @@ class Test(unittest.TestCase):
                                b)
 
         # Set kernel arguments
-        krn.set_args(a_, b_, c[0:1])
+        krn.set_args(a_, b_, c[:1])
 
         # Execute kernel
         global_size = [a.size]
@@ -415,7 +414,7 @@ class Test(unittest.TestCase):
             b[i] = math.cos(i)
             d[i] = a[i] + b[i] * c[0]
         a_copy = ffi.new("float[]", N)
-        a_copy[0:N] = a[0:N]
+        a_copy[:N] = a[:N]
 
         # Create buffers
         a_ = ctx.create_buffer(cl.CL_MEM_READ_WRITE | cl.CL_MEM_USE_HOST_PTR,
@@ -456,7 +455,7 @@ class Test(unittest.TestCase):
             else cl.CL_MAP_WRITE_INVALIDATE_REGION, sz,
             blocking=False, need_event=True)
         ev.wait()
-        a[0:N] = a_copy[0:N]
+        a[:N] = a_copy[:N]
         ev = queue.unmap_buffer(a_, ptr)
 
         # Execute kernel
@@ -514,7 +513,7 @@ class Test(unittest.TestCase):
         # Set kernel arguments
         krn.set_arg(0, a_)
         krn.set_arg(1, b_)
-        krn.set_arg(2, c[0:1])
+        krn.set_arg(2, c[:1])
 
         # Execute kernel
         ev = queue.execute_kernel(krn, [a.size], None)
@@ -612,9 +611,10 @@ class Test(unittest.TestCase):
         queue.fill_buffer(a_, pattern, pattern.nbytes, a.nbytes).wait()
 
         queue.read_buffer(a_, a)
-        diff = 0
-        for i in range(0, a.size, pattern.size):
-            diff += numpy.fabs(a[i:i + pattern.size] - pattern).sum()
+        diff = sum(
+            numpy.fabs(a[i : i + pattern.size] - pattern).sum()
+            for i in range(0, a.size, pattern.size)
+        )
         self.assertEqual(diff, 0)
 
     def test_set_arg_None(self):
@@ -708,7 +708,7 @@ class Test(unittest.TestCase):
         self.assertEqual(b_._n_refs, 1)
 
         # Set kernel arguments
-        krn.set_args(a_, b_, c[0:1])
+        krn.set_args(a_, b_, c[:1])
 
         # Execute kernel
         global_size = [4096]
@@ -869,9 +869,10 @@ class Test(unittest.TestCase):
         pattern = numpy.array([1, 2, 3, 4], dtype=numpy.int32)
         queue.svm_memfill(a, pattern, pattern.nbytes, a.nbytes)
         queue.svm_map(svm, cl.CL_MAP_READ, svm.size)
-        diff = 0
-        for i in range(0, a.size, pattern.size):
-            diff += numpy.fabs(a[i:i + pattern.size] - pattern).sum()
+        diff = sum(
+            numpy.fabs(a[i : i + pattern.size] - pattern).sum()
+            for i in range(0, a.size, pattern.size)
+        )
         self.assertEqual(diff, 0)
         queue.svm_unmap(svm).wait()
         del svm

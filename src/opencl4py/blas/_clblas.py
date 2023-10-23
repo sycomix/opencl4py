@@ -225,10 +225,11 @@ class CLBLAS(object):
     def __init__(self):
         self._lib = None
         initialize()
-        err = lib.clblasSetup()
-        if err:
-            raise CLRuntimeError("clblasSetup() failed with error %s" %
-                                 CL.get_error_description(err), err)
+        if err := lib.clblasSetup():
+            raise CLRuntimeError(
+                f"clblasSetup() failed with error {CL.get_error_description(err)}",
+                err,
+            )
         self._lib = lib  # to hold the reference
 
     def sgemm(self, queues, order, transA, transB,
@@ -303,14 +304,34 @@ class CLBLAS(object):
                 else commonSideLength)
         if not strideC:
             strideC = columnCountB if order == clblasRowMajor else rowsCountA
-        err = self._lib.clblasSgemm(
-            order, transA, transB, rowsCountA, columnCountB, commonSideLength,
-            alpha, A.handle, offsetA, strideA, B.handle, offsetB, strideB,
-            beta, C.handle, offsetC, strideC, len(queues), _queues,
-            n_events, wait_list, event)
-        if err:
-            raise CLRuntimeError("clblasSgemm() failed with error %s" %
-                                 CL.get_error_description(err), err)
+        if err := self._lib.clblasSgemm(
+            order,
+            transA,
+            transB,
+            rowsCountA,
+            columnCountB,
+            commonSideLength,
+            alpha,
+            A.handle,
+            offsetA,
+            strideA,
+            B.handle,
+            offsetB,
+            strideB,
+            beta,
+            C.handle,
+            offsetC,
+            strideC,
+            len(queues),
+            _queues,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clblasSgemm() failed with error {CL.get_error_description(err)}",
+                err,
+            )
         return Event(event[0]) if event != clffi.ffi.NULL else None
 
     def dgemm(self, queues, order, transA, transB,
@@ -385,14 +406,34 @@ class CLBLAS(object):
                 else commonSideLength)
         if not strideC:
             strideC = columnCountB if order == clblasRowMajor else rowsCountA
-        err = self._lib.clblasDgemm(
-            order, transA, transB, rowsCountA, columnCountB, commonSideLength,
-            alpha, A.handle, offsetA, strideA, B.handle, offsetB, strideB,
-            beta, C.handle, offsetC, strideC, len(queues), _queues,
-            n_events, wait_list, event)
-        if err:
-            raise CLRuntimeError("clblasDgemm() failed with error %s" %
-                                 CL.get_error_description(err), err)
+        if err := self._lib.clblasDgemm(
+            order,
+            transA,
+            transB,
+            rowsCountA,
+            columnCountB,
+            commonSideLength,
+            alpha,
+            A.handle,
+            offsetA,
+            strideA,
+            B.handle,
+            offsetB,
+            strideB,
+            beta,
+            C.handle,
+            offsetC,
+            strideC,
+            len(queues),
+            _queues,
+            n_events,
+            wait_list,
+            event,
+        ):
+            raise CLRuntimeError(
+                f"clblasDgemm() failed with error {CL.get_error_description(err)}",
+                err,
+            )
         return Event(event[0]) if event != clffi.ffi.NULL else None
 
     def __del__(self):
